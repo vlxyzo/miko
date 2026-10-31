@@ -115,7 +115,7 @@ class ProcessManager {
 
 			if (this.isShutdown) {
 				log.success(
-					"Process stopped manually. Thank you for using miko! I had fun. Don't forget to rest, okay? See you again soon! ^^"
+					'Process stopped manually. Thank you for using miko! See you again soon! ^^'
 				);
 
 				this.ellExit(0);
@@ -131,7 +131,7 @@ class ProcessManager {
 				this.crashHandle(code, signal);
 			} else {
 				log.success(
-					"Process exited cleanly. Thank you for using miko! I had fun. Don't forget to rest, okay? See you again soon! ^^"
+					'Process exited cleanly. Thank you for using miko! See you again soon! ^^'
 				);
 
 				this.ellExit(0);
@@ -156,7 +156,7 @@ class ProcessManager {
 			);
 
 			log.info(
-				'I need your help... Please open an issue here: https://github.com/vlxyzo/miko/issues'
+				'Hey, I need your help! Please open an issue here: https://github.com/vlxyzo/miko/issues'
 			);
 
 			this.ellExit(1);

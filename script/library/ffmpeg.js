@@ -16,13 +16,41 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
+const MIB = 1024 * 1024;
+const SAFE_EXTENSION = /^[a-z0-9]{1,10}$/i;
+const SAFE_BITRATE = /^\d{1,6}k?$/i;
+
+function resolveLimit(value, fallback, name) {
+	if (value === undefined) return fallback;
+	if (!Number.isInteger(value) || value <= 0) {
+		throw new TypeError(`${name} must be a positive integer`);
+	}
+	return value;
+}
+
+function assertSafeExtension(ext, name) {
+	if (typeof ext !== 'string' || !SAFE_EXTENSION.test(ext)) {
+		throw new TypeError(`Invalid ${name}: ${String(ext)}`);
+	}
+}
+
 export class FFmpegWrapper {
 	ffmpegPath;
 	defaultTimeout;
+	maxInputBytes;
+	maxOutputBytes;
+	maxStdoutBytes;
+	maxStderrBytes;
+	allowCustomRun;
 
 	constructor(options = {}) {
 		this.ffmpegPath = options.customFfmpegPath ?? 'ffmpeg';
 		this.defaultTimeout = options.timeoutMs ?? 60_000;
+		this.maxInputBytes = resolveLimit(options.maxInputBytes, 100 * MIB, 'maxInputBytes');
+		this.maxOutputBytes = resolveLimit(options.maxOutputBytes, 100 * MIB, 'maxOutputBytes');
+		this.maxStdoutBytes = resolveLimit(options.maxStdoutBytes, 50 * MIB, 'maxStdoutBytes');
+		this.maxStderrBytes = resolveLimit(options.maxStderrBytes, 64 * 1024, 'maxStderrBytes');
+		this.allowCustomRun = options.allowCustomRun ?? true;
 	}
 
 	execute(args, timeoutMs, captureStdout = false) {
@@ -35,42 +63,75 @@ export class FFmpegWrapper {
 			const stderrChunks = [];
 			const actualTimeout = timeoutMs ?? this.defaultTimeout;
 
+			let stdoutBytes = 0;
+			let stderrBytes = 0;
+			let stderrDropped = false;
 			let isSettled = false;
 
 			const timer = setTimeout(() => {
-				if (!isSettled) {
-					isSettled = true;
-					child.kill('SIGKILL');
-					reject(new Error(`FFmpeg process timed out after ${actualTimeout}ms`));
-				}
+				child.kill('SIGKILL');
+				finish(reject, new Error(`FFmpeg process timed out after ${actualTimeout}ms`));
 			}, actualTimeout);
 
+			const finish = (settle, value) => {
+				if (isSettled) return;
+				isSettled = true;
+				clearTimeout(timer);
+				settle(value);
+			};
+
 			if (captureStdout && child.stdout) {
-				child.stdout.on('data', chunk => stdoutChunks.push(chunk));
+				child.stdout.on('data', chunk => {
+					if (isSettled) return;
+					stdoutBytes += chunk.length;
+					if (stdoutBytes > this.maxStdoutBytes) {
+						child.kill('SIGKILL');
+						finish(
+							reject,
+							new RangeError(
+								`FFmpeg stdout exceeded the limit of ${this.maxStdoutBytes} bytes`
+							)
+						);
+						return;
+					}
+					stdoutChunks.push(chunk);
+				});
 			}
 
 			if (child.stderr) {
-				child.stderr.on('data', chunk => stderrChunks.push(chunk));
+				child.stderr.on('data', chunk => {
+					if (isSettled) return;
+					stderrChunks.push(chunk);
+					stderrBytes += chunk.length;
+					while (
+						stderrChunks.length > 1 &&
+						stderrBytes - stderrChunks[0].length >= this.maxStderrBytes
+					) {
+						stderrBytes -= stderrChunks.shift().length;
+						stderrDropped = true;
+					}
+				});
 			}
 
 			child.on('error', err => {
 				if (isSettled) return;
-				isSettled = true;
-				clearTimeout(timer);
 				child.kill('SIGKILL');
-				reject(new Error(`Failed to start FFmpeg process: ${err.message}`));
+				finish(reject, new Error(`Failed to start FFmpeg process: ${err.message}`));
 			});
 
 			child.on('close', (code, signal) => {
 				if (isSettled) return;
-				isSettled = true;
-				clearTimeout(timer);
 
 				if (code === 0) {
-					resolve(captureStdout ? Buffer.concat(stdoutChunks) : Buffer.alloc(0));
+					finish(resolve, captureStdout ? Buffer.concat(stdoutChunks) : Buffer.alloc(0));
 				} else {
-					const stderrMsg = Buffer.concat(stderrChunks).toString('utf8');
-					reject(
+					const stderrBuffer = Buffer.concat(stderrChunks);
+					const truncated = stderrDropped || stderrBuffer.length > this.maxStderrBytes;
+					const stderrMsg =
+						(truncated ? '[...truncated] ' : '') +
+						stderrBuffer.subarray(-this.maxStderrBytes).toString('utf8');
+					finish(
+						reject,
 						new Error(
 							`FFmpeg failed with code ${code ?? 'NULL'} (${signal ?? 'NO_SIGNAL'}): ${stderrMsg}`
 						)
@@ -81,13 +142,34 @@ export class FFmpegWrapper {
 	}
 
 	async processBuffer(inputBuffer, inputExt, outputExt, buildArgs, timeoutMs) {
+		if (!(inputBuffer instanceof Uint8Array)) {
+			throw new TypeError('inputBuffer must be a Buffer or Uint8Array');
+		}
+		if (inputBuffer.byteLength > this.maxInputBytes) {
+			throw new RangeError(
+				`Input is ${inputBuffer.byteLength} bytes, which exceeds the limit of ${this.maxInputBytes} bytes`
+			);
+		}
+		assertSafeExtension(inputExt, 'input extension');
+		assertSafeExtension(outputExt, 'output extension');
+
 		const id = randomUUID();
 		const tempInput = join(tmpdir(), `vlxyzo_in_${id}.${inputExt}`);
 		const tempOutput = join(tmpdir(), `vlxyzo_out_${id}.${outputExt}`);
 		try {
 			await fs.writeFile(tempInput, inputBuffer);
 			const args = buildArgs(tempInput, tempOutput);
+			if (args[args.length - 1] === tempOutput) {
+				args.splice(args.length - 1, 0, '-fs', String(this.maxOutputBytes + 1));
+			}
 			await this.execute(args, timeoutMs, false);
+
+			const { size } = await fs.stat(tempOutput);
+			if (size > this.maxOutputBytes) {
+				throw new RangeError(
+					`Output is ${size} bytes, which exceeds the limit of ${this.maxOutputBytes} bytes`
+				);
+			}
 			return await fs.readFile(tempOutput);
 		} finally {
 			await Promise.allSettled([fs.unlink(tempInput), fs.unlink(tempOutput)]);
@@ -207,6 +289,11 @@ export class FFmpegWrapper {
 			high: '23',
 			ultra: '18',
 		};
+
+		if (!Object.hasOwn(crfMap, quality)) {
+			throw new TypeError(`Unsupported video quality: ${quality}`);
+		}
+
 		return this.processBuffer(
 			videoBuffer,
 			'mp4',
@@ -235,6 +322,10 @@ export class FFmpegWrapper {
 
 	// to audio
 	async toMP3(audioBuffer, bitrate = '192k') {
+		if (typeof bitrate !== 'string' || !SAFE_BITRATE.test(bitrate)) {
+			throw new TypeError(`Invalid audio bitrate: ${String(bitrate)}`);
+		}
+
 		return this.processBuffer(
 			audioBuffer,
 			'tmp',
@@ -278,25 +369,31 @@ export class FFmpegWrapper {
 
 	// get audio
 	async extractAudio(videoBuffer, format = 'mp3') {
+		const audioFormats = {
+			mp3: 'libmp3lame',
+			aac: 'aac',
+			wav: 'pcm_s16le',
+		};
+
+		if (!Object.hasOwn(audioFormats, format)) {
+			throw new TypeError(`Unsupported audio format: ${format}`);
+		}
+
 		return this.processBuffer(
 			videoBuffer,
 			'mp4',
 			format,
-			(inPath, outPath) => [
-				'-y',
-				'-i',
-				inPath,
-				'-vn',
-				'-c:a',
-				format === 'mp3' ? 'libmp3lame' : format === 'aac' ? 'aac' : 'pcm_s16le',
-				outPath,
-			],
+			(inPath, outPath) => ['-y', '-i', inPath, '-vn', '-c:a', audioFormats[format], outPath],
 			120_000
 		);
 	}
 
 	// get thumbnail
 	async getThumbnail(videoBuffer, timestampSeconds = 1) {
+		if (!Number.isFinite(timestampSeconds) || timestampSeconds < 0) {
+			throw new TypeError(`Invalid thumbnail timestamp: ${String(timestampSeconds)}`);
+		}
+
 		return this.processBuffer(
 			videoBuffer,
 			'mp4',
@@ -319,6 +416,16 @@ export class FFmpegWrapper {
 
 	// custom runner
 	async customRun(args, timeoutMs, captureStdout = true) {
+		if (!this.allowCustomRun) {
+			throw new Error('customRun() is disabled for this FFmpegWrapper instance');
+		}
+		if (
+			!Array.isArray(args) ||
+			args.length === 0 ||
+			args.some(arg => typeof arg !== 'string' || arg.includes('\0'))
+		) {
+			throw new TypeError('customRun() expects a non-empty array of strings');
+		}
 		return this.execute(args, timeoutMs, captureStdout);
 	}
 }
