@@ -14,7 +14,7 @@ import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { log } from '#lib/logger.js';
 
-const zero = join(import.meta.dirname, './script/main.js');
+const engine = join(import.meta.dirname, './script/main.js');
 
 class ProcessManager {
 	entryPath;
@@ -197,5 +197,5 @@ class ProcessManager {
 	}
 }
 
-const stacy = new ProcessManager(zero);
+const stacy = new ProcessManager(engine);
 /* ==> */ stacy.start();
