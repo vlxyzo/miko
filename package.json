@@ -1,0 +1,52 @@
+{
+  "name": "miko",
+  "version": "0.0.1-alpha",
+  "description": "Telegram Bot",
+  "author": "Velix",
+  "license": "GPL-V3.0",
+  "homepage": "https://github.com/vlxyzo/miko#README",
+  "bugs": {
+    "email": "vlxstacyy@gmail.com",
+    "url": "https://github.com/vlxyzo/miko/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vlxyzo/miko.git"
+  },
+  "funding": [
+    {
+      "type": "Telegram Channel",
+      "url": "https://t.me/chvlxyzo"
+    },
+    {
+      "type": "miko",
+      "url": "https://t.itsmikoobotbot"
+    }
+  ],
+  "private": true,
+  "type": "module",
+  "main": "start.js",
+  "scripts": {
+    "start": "node --env-file=.env start.js",
+    "dev": "node --watch --env-file=.env start.js",
+    "clean": "node --input-type=module -e \"import fs from 'node:fs'; fs.rmSync('database', { recursive: true, force: true }); fs.mkdirSync('database');\"",
+    "update": "git pull && npm install"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "imports": {
+    "#db/*": "./database/*",
+    "#sys/*": "./script/system/*",
+    "#lib/*": "./script/library/*",
+    "#plug/*": "./script/plugin/*",
+    "#src/*": "./source/*"
+  },
+  "dependencies": {
+    "@google/genai": "^2.23.0",
+    "@supabase/supabase-js": "^2.116.0",
+    "cheerio": "^1.2.0",
+    "telegraf": "^4.16.3"
+  }
+}
