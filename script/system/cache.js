@@ -18,7 +18,6 @@ export class AdvMap extends Map {
 	name;
 	sweepInterval;
 	onEvict;
-
 	timestamps = new Map();
 	_sweepTimer = null;
 
