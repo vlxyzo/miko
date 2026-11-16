@@ -10,9 +10,37 @@
  * @source    https://github.com/vlxyzo/miko
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { log } from '#lib/logger.js';
+
+function checkSystemDeps() {
+	const nodeMajor = Number(process.versions.node.split('.')[0]);
+	const npmCheck = spawnSync('npm', ['-v'], { encoding: 'utf8', shell: true });
+	const npmMajor = Number((npmCheck.stdout || '0').trim().split('.')[0]);
+	const ffmpegCheck = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
+
+	if (nodeMajor < 24) {
+		log.error(
+			`Node.js v24+ is required (detected v${process.versions.node}). Run: npm run setup`
+		);
+		process.exit(1);
+	}
+
+	if (npmCheck.status !== 0 || npmMajor < 11) {
+		log.error(
+			`npm v11+ is required (detected v${(npmCheck.stdout || 'NONE').trim()}). Run: npm run setup`
+		);
+		process.exit(1);
+	}
+
+	if (ffmpegCheck.status !== 0) {
+		log.error('FFmpeg is not installed globally! Run: npm run setup');
+		process.exit(1);
+	}
+}
+
+checkSystemDeps();
 
 const engine = join(import.meta.dirname, './script/main.js');
 
@@ -28,7 +56,6 @@ class ProcessManager {
 	fcKillTime;
 	isShutdown = false;
 	isRestart = false;
-
 	constructor(entryPath) {
 		this.entryPath = entryPath;
 		this.sysSignal();
@@ -41,7 +68,6 @@ class ProcessManager {
 		this.child = spawn(process.execPath, args, {
 			stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
 		});
-
 		this.childListen();
 		this.startGc();
 	}
@@ -88,7 +114,7 @@ class ProcessManager {
 		if (this.isShutdown) return;
 
 		this.isShutdown = true;
-		log.warning(`${signal} trigerred. Let me sleep for now...`);
+		log.warning(`${signal} triggerred. Let me sleep for now...`);
 		this.stopGc();
 
 		if (!this.child) {
@@ -100,7 +126,6 @@ class ProcessManager {
 			log.error('Child process is being stubborn. No more mercy, forcing shutdown now...');
 			process.exit(1);
 		}, 8000);
-
 		this.child.once('exit', () => {
 			this.ellExit(0);
 		});
@@ -117,7 +142,6 @@ class ProcessManager {
 				log.success(
 					'Process stopped manually. Thank you for using miko! See you again soon! ^^'
 				);
-
 				this.ellExit(0);
 			}
 
@@ -156,7 +180,7 @@ class ProcessManager {
 			);
 
 			log.info(
-				'Hey, I need your help! Please open an issue here: https://github.com/vlxyzo/miko/issues'
+				'I need your help! Please open an issue here: https://github.com/vlxyzo/miko/issues'
 			);
 
 			this.ellExit(1);
