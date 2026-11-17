@@ -36,39 +36,42 @@ export class TimeUtil {
 		hourCycle: 'h23',
 	});
 
-	static formatDate(date = new Date()) {
-		const d = new Date(date);
-		const validDate = Number.isNaN(d.getTime()) ? new Date() : d;
+	static #parseDate(date) {
+		if (date == null) return new Date();
+		const parsed = date instanceof Date ? date : new Date(date);
+		return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+	}
 
-		return this.dateFormatter.format(validDate);
+	static formatDate(date = new Date()) {
+		return this.dateFormatter.format(this.#parseDate(date));
 	}
 
 	static formatTime(format = 'HH:mm', date = new Date()) {
-		const d = new Date(date);
-		const validDate = Number.isNaN(d.getTime()) ? new Date() : d;
-		const parts = this.timeFormatter.formatToParts(validDate);
-		const p = {};
+		const parts = this.timeFormatter.formatToParts(this.#parseDate(date));
+		const partMap = {};
 
 		for (const part of parts) {
 			if (part.type !== 'literal') {
-				p[part.type] = part.value;
+				partMap[part.type] = part.value;
 			}
 		}
 
-		const hourNum = parseInt(p.hour || '0', 10);
+		const hourNum = parseInt(partMap.hour || '0', 10);
 		const ampm = hourNum >= 12 ? 'PM' : 'AM';
-		const hour12 = hourNum % 12 || 12;
-		const hour12Str = hour12.toString().padStart(2, '0');
+		const hour12 = (hourNum % 12 || 12).toString().padStart(2, '0');
 
-		return format
-			.replace('DD', p.day || '00')
-			.replace('MM', p.month || '00')
-			.replace('YYYY', p.year || '0000')
-			.replace('HH', p.hour || '00')
-			.replace('hh', hour12Str)
-			.replace('mm', p.minute || '00')
-			.replace('ss', p.second || '00')
-			.replace('A', ampm);
+		const tokens = {
+			YYYY: partMap.year || '0000',
+			MM: partMap.month || '00',
+			DD: partMap.day || '00',
+			HH: partMap.hour || '00',
+			hh: hour12,
+			mm: partMap.minute || '00',
+			ss: partMap.second || '00',
+			A: ampm,
+		};
+
+		return format.replace(/YYYY|MM|DD|HH|hh|mm|ss|A/g, token => tokens[token]);
 	}
 
 	static clockString(ms) {
@@ -94,20 +97,11 @@ export class TimeUtil {
 	}
 
 	static getGreeting(date = new Date()) {
-		const d = new Date(date);
-		const validDate = Number.isNaN(d.getTime()) ? new Date() : d;
-		const hourStr = this.hourFormatter.format(validDate);
-		const hour = parseInt(hourStr, 10);
+		const hour = parseInt(this.hourFormatter.format(this.#parseDate(date)), 10);
 
-		if (hour >= 4 && hour < 12) {
-			return 'Good morning 🌅';
-		}
-		if (hour >= 12 && hour < 17) {
-			return 'Good afternoon ☀️';
-		}
-		if (hour >= 17 && hour < 21) {
-			return 'Good evening 🌙';
-		}
-		return 'Good night 🌃';
+		if (hour >= 4 && hour < 12) return '🌅 Good morning';
+		if (hour >= 12 && hour < 17) return '☀️ Good afternoon';
+		if (hour >= 17 && hour < 21) return '🌙 Good evening';
+		return '🌃 Good night';
 	}
 }

@@ -14,51 +14,53 @@ import { spawn, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { log } from '#lib/logger.js';
 
+const engine = join(import.meta.dirname, './script/main.js');
+
 function checkSystemDeps() {
 	const nodeMajor = Number(process.versions.node.split('.')[0]);
-	const npmCheck = spawnSync('npm', ['-v'], { encoding: 'utf8', shell: true });
+	const npmCheck = spawnSync('npm', ['-v'], {
+		encoding: 'utf8',
+		shell: process.platform === 'win32',
+	});
 	const npmMajor = Number((npmCheck.stdout || '0').trim().split('.')[0]);
 	const ffmpegCheck = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
 
 	if (nodeMajor < 24) {
-		log.error(
-			`Node.js v24+ is required (detected v${process.versions.node}). Run: npm run setup`
-		);
+		log.error(`miko needs Node.js v24+ (yours v${process.versions.node}). Run: npm run setup`);
 		process.exit(1);
 	}
 
 	if (npmCheck.status !== 0 || npmMajor < 11) {
 		log.error(
-			`npm v11+ is required (detected v${(npmCheck.stdout || 'NONE').trim()}). Run: npm run setup`
+			`miko needs npm v11+ (yours v${(npmCheck.stdout || 'none').trim()}). Run: npm run setup`
 		);
 		process.exit(1);
 	}
 
 	if (ffmpegCheck.status !== 0) {
-		log.error('FFmpeg is not installed globally! Run: npm run setup');
+		log.error('miko needs FFmpeg, but it is not installed globally. Run: npm run setup');
 		process.exit(1);
 	}
 }
 
 checkSystemDeps();
 
-const engine = join(import.meta.dirname, './script/main.js');
-
 class ProcessManager {
 	entryPath;
 	maxCrashes = 5;
-	crashMs = 60_000;
-	garbageMs = 15 * 60 * 1000;
+	crashWindowMs = 60_000;
+	gcIntervalMs = 15 * 60 * 1000;
 	child = null;
 	crashCount = 0;
 	lastCrash = Date.now();
 	gcTimer;
-	fcKillTime;
+	forceKillTimer;
 	isShutdown = false;
 	isRestart = false;
+
 	constructor(entryPath) {
 		this.entryPath = entryPath;
-		this.sysSignal();
+		this.bindSystemSignals();
 	}
 
 	start() {
@@ -68,36 +70,38 @@ class ProcessManager {
 		this.child = spawn(process.execPath, args, {
 			stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
 		});
-		this.childListen();
+
+		this.bindChildEvents();
 		this.startGc();
 	}
 
-	ellRestart() {
+	restart() {
 		this.isRestart = true;
 
 		if (this.child) {
-			log.loading('Let me kill the old me first before we start again...');
+			log.loading('Stopping current process before restarting...');
 			this.child.kill();
 		} else {
 			this.start();
 		}
 	}
 
-	ellExit(code = 0) {
+	exit(code = 0) {
 		this.stopGc();
 
-		if (this.fcKillTime) {
-			clearTimeout(this.fcKillTime);
+		if (this.forceKillTimer) {
+			clearTimeout(this.forceKillTimer);
+			this.forceKillTimer = undefined;
 		}
 
 		process.exit(code);
 	}
 
-	ipcMessage(message) {
+	handleIpcMessage(message) {
 		switch (message) {
 			case 'reset':
-				log.loading('You called for a restart? On it...');
-				this.ellRestart();
+				log.loading('Restart requested. Reloading...');
+				this.restart();
 				break;
 			case 'uptime':
 				if (this.child?.connected) {
@@ -105,69 +109,66 @@ class ProcessManager {
 				}
 				break;
 			case 'exit':
-				this.ellExit(0);
+				this.exit(0);
 				break;
 		}
 	}
 
-	async graceShutd(signal) {
+	async gracefulShutdown(signal) {
 		if (this.isShutdown) return;
 
 		this.isShutdown = true;
-		log.warning(`${signal} triggerred. Let me sleep for now...`);
+		log.warning(`${signal} triggered. Shutting down gracefully...`);
 		this.stopGc();
 
 		if (!this.child) {
-			process.exit(0);
+			this.exit(0);
 		}
 
 		this.child.kill(signal);
-		this.fcKillTime = setTimeout(() => {
-			log.error('Child process is being stubborn. No more mercy, forcing shutdown now...');
-			process.exit(1);
+		this.forceKillTimer = setTimeout(() => {
+			log.error('Child process did not exit in time. Forcing shutdown...');
+			this.child?.kill('SIGKILL');
+			this.exit(1);
 		}, 8000);
-		this.child.once('exit', () => {
-			this.ellExit(0);
-		});
 	}
 
-	childListen() {
+	bindChildEvents() {
 		if (!this.child) return;
 
-		this.child.on('message', data => this.ipcMessage(data));
+		this.child.on('message', data => this.handleIpcMessage(data));
 		this.child.on('exit', (code, signal) => {
 			this.child = null;
 
 			if (this.isShutdown) {
 				log.success(
-					'Process stopped manually. Thank you for using miko! See you again soon! ^^'
+					'Process stopped manually. Thanks for using miko! See you again soon! ^^'
 				);
-				this.ellExit(0);
+				this.exit(0);
 			}
 
 			if (this.isRestart) {
-				log.loading('Old me is gone. Starting a fresh one...');
+				log.loading('Previous process stopped. Starting a fresh instance...');
 				this.start();
 				return;
 			}
 
 			if (code !== 0) {
-				this.crashHandle(code, signal);
+				this.handleCrash(code, signal);
 			} else {
 				log.success(
-					'Process exited cleanly. Thank you for using miko! See you again soon! ^^'
+					'Process exited cleanly. Thanks for using miko! See you again soon! ^^'
 				);
-
-				this.ellExit(0);
+				this.exit(0);
 			}
 		});
 	}
 
-	crashHandle(code, signal) {
-		log.error(`Ouch! Crashed with exit code ${code || signal}. That hurt!`);
+	handleCrash(code, signal) {
+		log.error(`Crashed with exit code ${code ?? signal}.`);
 		const now = Date.now();
 
-		if (now - this.lastCrash > this.crashMs) {
+		if (now - this.lastCrash > this.crashWindowMs) {
 			this.crashCount = 0;
 		}
 
@@ -175,18 +176,13 @@ class ProcessManager {
 		this.lastCrash = now;
 
 		if (this.crashCount >= this.maxCrashes) {
-			log.error(
-				`Crashed ${this.crashCount} times in 1m. I can't go on like this, it hurts! Stopping auto restart...`
-			);
-
-			log.info(
-				'I need your help! Please open an issue here: https://github.com/vlxyzo/miko/issues'
-			);
-
-			this.ellExit(1);
+			log.error(`Crashed ${this.crashCount} times within 1 minute. Stopping auto-restart`);
+			log.info('Please report this issue at: https://github.com/vlxyzo/miko/issues');
+			this.exit(1);
+			return;
 		}
 
-		log.loading('Let me try again in 3s...');
+		log.loading('Restarting in 3s...');
 		setTimeout(() => this.start(), 3000);
 	}
 
@@ -195,10 +191,9 @@ class ProcessManager {
 
 		this.gcTimer = setInterval(() => {
 			if (this.child?.connected) {
-				const gcMsg = 'gc';
-				this.child.send(gcMsg);
+				this.child.send('gc');
 			}
-		}, this.garbageMs);
+		}, this.gcIntervalMs);
 	}
 
 	stopGc() {
@@ -208,18 +203,18 @@ class ProcessManager {
 		}
 	}
 
-	sysSignal() {
-		const handlesignal = signal => {
-			this.graceShutd(signal).catch(err => {
-				log.error(`Hehe, i tried to be nicely but i messed up: ${String(err)}`);
+	bindSystemSignals() {
+		const onSignal = signal => {
+			this.gracefulShutdown(signal).catch(err => {
+				log.error(`Shutdown error: ${String(err)}`);
 				process.exit(1);
 			});
 		};
 
-		process.once('SIGINT', () => handlesignal('SIGINT'));
-		process.once('SIGTERM', () => handlesignal('SIGTERM'));
+		process.once('SIGINT', () => onSignal('SIGINT'));
+		process.once('SIGTERM', () => onSignal('SIGTERM'));
 	}
 }
 
-const stacy = new ProcessManager(engine);
-/* ==> */ stacy.start();
+const manager = new ProcessManager(engine);
+manager.start();

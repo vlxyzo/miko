@@ -21,31 +21,31 @@ if [ "$(id -u)" -ne 0 ] && [ -z "$TERMUX_VERSION" ]; then
   fi
 fi
 
-log_info "Starting environment preparation..."
+log_info "Checking environment..."
 
 install_system_packages() {
   if [ -n "$TERMUX_VERSION" ]; then
-    log_info "Termux detected. Installing..."
-    pkg update -y && pkg upgrade -y
+    log_info "Termux detected. Installing system packages..."
+    pkg update -y
     pkg install -y ffmpeg nodejs git curl
   elif command -v apt-get >/dev/null 2>&1; then
-    log_info "Debian/Ubuntu detected. Installing..."
+    log_info "Debian/Ubuntu detected. Installing system packages..."
     $SUDO apt-get update -y
     $SUDO apt-get install -y ffmpeg curl git ca-certificates
   elif command -v dnf >/dev/null 2>&1; then
-    log_info "Fedora/RHEL detected. Installing..."
+    log_info "Fedora/RHEL detected. Installing system packages..."
     $SUDO dnf install -y ffmpeg curl git
   elif command -v pacman >/dev/null 2>&1; then
-    log_info "Arch Linux detected. Installing..."
+    log_info "Arch Linux detected. Installing system packages..."
     $SUDO pacman -Sy --noconfirm ffmpeg curl git
   elif command -v apk >/dev/null 2>&1; then
-    log_info "Alpine Linux detected. Installing..."
+    log_info "Alpine Linux detected. Installing system packages..."
     $SUDO apk add --no-cache ffmpeg curl git bash
   elif command -v brew >/dev/null 2>&1; then
-    log_info "macOS detected. Installing..."
+    log_info "macOS detected. Installing system packages..."
     brew install ffmpeg
   else
-    log_error "OS package manager not recognized. Please install ffmpeg manually"
+    log_error "Unsupported package manager. Please install ffmpeg, git, curl, and Node.js v24+ manually"
   fi
 }
 
@@ -60,18 +60,18 @@ if [ -z "$TERMUX_VERSION" ]; then
 
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-  log_info "Installing the latest version of Node.js..."
+  log_info "Installing latest Node.js..."
   nvm install node
   nvm use node
   nvm alias default node
-fi
 
-log_info "Updating npm to the latest version..."
-npm install -g npm@latest
+  log_info "Updating npm to the latest version..."
+  npm install -g npm@latest
+fi
 
 echo ""
 log_info "Verifying global packages..."
-command -v ffmpeg >/dev/null 2>&1 || log_error "FFmpeg installation failed"
+command -v ffmpeg >/dev/null 2>&1 || log_error "FFmpeg installation failed. Please try again"
 log_success "FFmpeg  : $(ffmpeg -version | head -n 1)"
 log_success "Node.js : $(node -v)"
 log_success "npm     : v$(npm -v)"
@@ -79,7 +79,12 @@ log_success "npm     : v$(npm -v)"
 mkdir -p database
 
 if [ ! -f ".env" ]; then
-  log_warn ".env file not found! Make sure you create it before running npm start"
+  if [ -f ".env.example" ]; then
+    cp .env.example .env
+    log_warn ".env created from .env.example. Please fill in your credentials before running npm start"
+  else
+    log_warn ".env file not found! Make sure you create it before running npm start"
+  fi
 fi
 
 if [ -f "package.json" ]; then
@@ -89,5 +94,5 @@ if [ -f "package.json" ]; then
 fi
 
 echo ""
-log_success "Setup complete! Run the bot with the command: npm start"
+log_success "Setup complete! Run miko with: npm start"
 # CR : @vlxyzo <github.com/vlxyzo>

@@ -29,13 +29,28 @@ export class AdvMap extends Map {
 		this.sweepInterval = options.sweepInterval ?? 60_000;
 		this.onEvict = options.onEvict ?? null;
 
-		if (this.ttl > 0) {
+		if (this.ttl > 0 && this.sweepInterval > 0) {
 			this._startSweeper();
 		}
 	}
 
+	_isExpired(key) {
+		if (this.ttl <= 0) return false;
+		const timeAdded = this.timestamps.get(key);
+		return timeAdded !== undefined && Date.now() - timeAdded > this.ttl;
+	}
+
+	has(key) {
+		if (!super.has(key)) return false;
+		if (this._isExpired(key)) {
+			this._evict(key, 'TTL_EXPIRED');
+			return false;
+		}
+		return true;
+	}
+
 	set(key, value) {
-		if (this.has(key)) {
+		if (super.has(key)) {
 			super.delete(key);
 			this.timestamps.delete(key);
 		} else if (this.maxSize > 0 && this.size >= this.maxSize) {
@@ -52,21 +67,18 @@ export class AdvMap extends Map {
 	get(key) {
 		if (!this.has(key)) return undefined;
 
-		if (this.ttl > 0) {
-			const timeAdded = this.timestamps.get(key);
-			if (timeAdded !== undefined && Date.now() - timeAdded > this.ttl) {
-				this._evict(key, 'TTL_EXPIRED');
-				return undefined;
-			}
-		}
-
 		const value = super.get(key);
-		if (value !== undefined) {
-			super.delete(key);
-			super.set(key, value);
-		}
+		// refresh LRU position
+		super.delete(key);
+		super.set(key, value);
 
 		return value;
+	}
+
+	/** Read value without updating its LRU recency */
+	peek(key) {
+		if (!this.has(key)) return undefined;
+		return super.get(key);
 	}
 
 	delete(key) {
@@ -94,8 +106,8 @@ export class AdvMap extends Map {
 		if (value !== undefined && typeof this.onEvict === 'function') {
 			try {
 				this.onEvict(key, value, reason);
-			} catch (e) {
-				const errorMsg = e instanceof Error ? e.message : String(e);
+			} catch (err) {
+				const errorMsg = err instanceof Error ? err.message : String(err);
 				log.error(`Cache ${this.name} got error during eviction callback: ${errorMsg}`);
 			}
 		}
@@ -103,8 +115,11 @@ export class AdvMap extends Map {
 
 	_startSweeper() {
 		this._sweepTimer = setInterval(() => {
+			if (this.size === 0) return;
+
 			const now = Date.now();
 			let sweepCount = 0;
+
 			for (const [key, timeAdded] of this.timestamps.entries()) {
 				if (now - timeAdded > this.ttl) {
 					this._evict(key, 'SWEEP_CLEANUP');
@@ -113,7 +128,7 @@ export class AdvMap extends Map {
 			}
 
 			if (sweepCount > 0) {
-				log.debug(`Cache ${this.name} has swept ${sweepCount} expired items`);
+				log.debug(`Cache ${this.name} swept ${sweepCount} expired items`);
 			}
 		}, this.sweepInterval).unref();
 	}
@@ -126,14 +141,20 @@ class ManageCache {
 		if (this.caches.has(name)) {
 			return this.caches.get(name);
 		}
-		options.name = name;
-		const cache = new AdvMap(options);
+		const cache = new AdvMap({ ...options, name });
 		this.caches.set(name, cache);
 		return cache;
 	}
 
 	getCache(name) {
 		return this.caches.get(name);
+	}
+
+	deleteCache(name) {
+		const cache = this.caches.get(name);
+		if (!cache) return false;
+		cache.destroy();
+		return this.caches.delete(name);
 	}
 
 	clearAllCaches() {

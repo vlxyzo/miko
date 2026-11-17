@@ -15,6 +15,7 @@ database/activity/*.json
 database/*.json
 database/*.db
 # database/session/*
+database/temp/*
 
 # logs
 npm-debug.log*
@@ -49,7 +50,6 @@ Pods/
 !.vscode/launch.json
 
 # other
-database/temp/*
 NOTE.txt
 graph.svg
-source/prompt/zerotwo.md
+source/prompt/miko.md
