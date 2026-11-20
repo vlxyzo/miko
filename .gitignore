@@ -14,6 +14,7 @@ creds.json
 database/activity/*.json
 database/*.json
 database/*.db
+database/db.json.bak
 database/db.*.bak
 database/*.bak
 # database/session/*
