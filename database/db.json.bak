@@ -1,0 +1,21 @@
+{
+  "meta": {
+    "lastDefaultLimit": 15,
+    "lastLimitResetDate": "2026-11-20",
+    "lastCloudSync": "2026-11-20T08:26:46.638Z"
+  },
+  "users": [],
+  "banned": [],
+  "groups": [],
+  "state": [
+    {
+      "key": "owner_away",
+      "value": {
+        "away": true,
+        "since": "2026-11-20T08:26:46.439Z",
+        "reason": "refactoring miko"
+      },
+      "updated_at": "2026-11-20T08:26:46.439+00:00"
+    }
+  ]
+}

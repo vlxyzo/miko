@@ -1,22 +1,10 @@
-/**
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version
- * of the License , or (at your option) any later version.
- *
- * @project   miko v0.0.1-alpha
- * @author    Velix <https://github.com/vlxyzo>
- * @license   gpl-3.0-latest
- * @source    https://github.com/vlxyzo/miko
- */
-
 import { spawn, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { log } from '#lib/logger.js';
 
 const engine = join(import.meta.dirname, './script/main.js');
 
-function checkSystemDeps() {
+function sysDeps() {
 	const nodeMajor = Number(process.versions.node.split('.')[0]);
 	const npmCheck = spawnSync('npm', ['-v'], {
 		encoding: 'utf8',
@@ -29,21 +17,19 @@ function checkSystemDeps() {
 		log.error(`miko needs Node.js v24+ (yours v${process.versions.node}). Run: npm run setup`);
 		process.exit(1);
 	}
-
 	if (npmCheck.status !== 0 || npmMajor < 11) {
 		log.error(
 			`miko needs npm v11+ (yours v${(npmCheck.stdout || 'none').trim()}). Run: npm run setup`
 		);
 		process.exit(1);
 	}
-
 	if (ffmpegCheck.status !== 0) {
 		log.error('miko needs FFmpeg, but it is not installed globally. Run: npm run setup');
 		process.exit(1);
 	}
 }
 
-checkSystemDeps();
+sysDeps();
 
 class ProcessManager {
 	entryPath;
@@ -116,8 +102,8 @@ class ProcessManager {
 
 	async gracefulShutdown(signal) {
 		if (this.isShutdown) return;
-
 		this.isShutdown = true;
+
 		log.warning(`${signal} triggered. Shutting down gracefully...`);
 		this.stopGc();
 
@@ -126,6 +112,7 @@ class ProcessManager {
 		}
 
 		this.child.kill(signal);
+
 		this.forceKillTimer = setTimeout(() => {
 			log.error('Child process did not exit in time. Forcing shutdown...');
 			this.child?.kill('SIGKILL');
@@ -135,8 +122,8 @@ class ProcessManager {
 
 	bindChildEvents() {
 		if (!this.child) return;
-
 		this.child.on('message', data => this.handleIpcMessage(data));
+
 		this.child.on('exit', (code, signal) => {
 			this.child = null;
 
@@ -146,13 +133,11 @@ class ProcessManager {
 				);
 				this.exit(0);
 			}
-
 			if (this.isRestart) {
 				log.loading('Previous process stopped. Starting a fresh instance...');
 				this.start();
 				return;
 			}
-
 			if (code !== 0) {
 				this.handleCrash(code, signal);
 			} else {
@@ -218,3 +203,4 @@ class ProcessManager {
 
 const manager = new ProcessManager(engine);
 manager.start();
+// => ./script/main.js

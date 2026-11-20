@@ -1,42 +1,32 @@
-/**
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version
- * of the License , or (at your option) any later version.
- *
- * @project   miko v0.0.1-alpha
- * @author    Velix <https://github.com/vlxyzo>
- * @license   gpl-3.0-latest
- * @source    https://github.com/vlxyzo/miko
- */
-
-import { styleText } from 'node:util';
+import { format, styleText } from 'node:util';
 import { TimeUtil } from './times.js';
 
 const timestamp = () => styleText(['gray'], TimeUtil.formatTime('HH:mm:ss'));
 
-const formatMessage = value => {
-	if (value instanceof Error) {
-		return value.stack || value.message;
-	}
-	return String(value ?? '');
-};
+const formatArgs = (...args) =>
+	args
+		.map(value => {
+			if (value instanceof Error) return value.stack || value.message;
+			if (typeof value === 'object' && value !== null) return format('%O', value);
+			return String(value ?? '');
+		})
+		.join(' ');
 
 export const log = {
-	error: text =>
-		console.error(`${timestamp()} ${styleText(['white', 'bgRed', 'bold'], `⟨X⟩ ${formatMessage(text)}`)}`),
-	warning: text =>
-		console.warn(`${timestamp()} ${styleText(['yellow', 'bold'], '⟨!⟩')} ${formatMessage(text)}`),
-	success: text =>
-		console.log(`${timestamp()} ${styleText(['green', 'bold'], '⟨✓⟩')} ${formatMessage(text)}`),
-	debug: text =>
-		console.log(`${timestamp()} ${styleText(['gray', 'bold'], '⟨#⟩')} ${formatMessage(text)}`),
-	loading: text =>
-		console.log(styleText(['gray', 'italic'], formatMessage(text))),
-	info: text =>
-		console.info(`${timestamp()} ${styleText(['magenta', 'bold'], '⟨•⟩')} ${formatMessage(text)}`),
-	miko: (me, message) =>
-		console.log(`${timestamp()} ${styleText(['blue', 'bold'], `⟨=⟩ ${formatMessage(me)}`)} ${formatMessage(message)}`),
-	user: (sender, command) =>
-		console.log(`${timestamp()} ${styleText(['bgBlue', 'white', 'bold'], `⟨>⟩ ${formatMessage(sender)}`)} executed ${formatMessage(command)}`),
+	error: (...args) =>
+		console.error(`${timestamp()} ${styleText(['white', 'bgRed', 'bold'], `⟨X⟩ ${formatArgs(...args)}`)}`),
+	warning: (...args) =>
+		console.warn(`${timestamp()} ${styleText(['yellow', 'bold'], '⟨!⟩')} ${formatArgs(...args)}`),
+	success: (...args) =>
+		console.log(`${timestamp()} ${styleText(['green', 'bold'], '⟨✓⟩')} ${formatArgs(...args)}`),
+	debug: (...args) =>
+		console.log(`${timestamp()} ${styleText(['gray', 'bold'], '⟨#⟩')} ${formatArgs(...args)}`),
+	loading: (...args) =>
+		console.log(styleText(['gray', 'italic'], formatArgs(...args))),
+	info: (...args) =>
+		console.info(`${timestamp()} ${styleText(['magenta', 'bold'], '⟨•⟩')} ${formatArgs(...args)}`),
+	miko: (me, ...message) =>
+		console.log(`${timestamp()} ${styleText(['blue', 'bold'], `⟨=⟩ ${formatArgs(me)}`)} ${formatArgs(...message)}`),
+	user: (sender, ...command) =>
+		console.log(`${timestamp()} ${styleText(['bgBlue', 'white', 'bold'], `⟨>⟩ ${formatArgs(sender)}`)} executed ${formatArgs(...command)}`),
 };

@@ -95,4 +95,3 @@ fi
 
 echo ""
 log_success "Setup complete! Run miko with: npm start"
-# CR : @vlxyzo <github.com/vlxyzo>
