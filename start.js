@@ -1,3 +1,10 @@
+/**
+ * @project   miko v0.0.1-alpha
+ * @author    Velix <https://github.com/vlxyzo>
+ * @license   GPL-3.0-or-later
+ * @source    https://github.com/vlxyzo/miko
+ */
+
 import { spawn, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { log } from '#lib/logger.js';

@@ -1,3 +1,10 @@
+/**
+ * @project   miko v0.0.1-alpha
+ * @author    Velix <https://github.com/vlxyzo>
+ * @license   GPL-3.0-or-later
+ * @source    https://github.com/vlxyzo/miko
+ */
+
 try {
 	process.loadEnvFile();
 } catch {}
@@ -114,7 +121,7 @@ async function shutdown(signal) {
 		telegraf.stop(signal);
 		GlobCache.destroyAll();
 		await flushDatabase();
-		log.success('Clean shutdown complete.');
+		log.success('Clean shutdown complete');
 		process.exit(0);
 	} catch (err) {
 		log.error('Error during shutdown:', err);

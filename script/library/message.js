@@ -1,3 +1,10 @@
+/**
+ * @project   miko v0.0.1-alpha
+ * @author    Velix <https://github.com/vlxyzo>
+ * @license   GPL-3.0-or-later
+ * @source    https://github.com/vlxyzo/miko
+ */
+
 const VALID_DICE_EMOJIS = new Set(['🎲', '🎯', '🏀', '⚽', '🎳', '🎰']);
 
 function chunkArray(items, columns = 2) {

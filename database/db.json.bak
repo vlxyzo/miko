@@ -2,20 +2,30 @@
   "meta": {
     "lastDefaultLimit": 15,
     "lastLimitResetDate": "2026-11-20",
-    "lastCloudSync": "2026-11-20T08:26:46.638Z"
+    "lastCloudSync": "2026-11-20T13:34:12.671Z"
   },
   "users": [],
   "banned": [],
-  "groups": [],
+  "groups": [
+    {
+      "chat_id": -5373517371,
+      "title": "𝓛 and miko",
+      "is_banned": false,
+      "is_muted": false,
+      "welcome": false,
+      "antilink": false,
+      "last_active": "2026-11-20T09:20:49.078+00:00"
+    }
+  ],
   "state": [
     {
       "key": "owner_away",
       "value": {
-        "away": true,
-        "since": "2026-11-20T08:26:46.439Z",
-        "reason": "refactoring miko"
+        "away": false,
+        "since": null,
+        "reason": null
       },
-      "updated_at": "2026-11-20T08:26:46.439+00:00"
+      "updated_at": "2026-11-20T13:34:12.488+00:00"
     }
   ]
 }

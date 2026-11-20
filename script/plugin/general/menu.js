@@ -20,7 +20,7 @@ export default {
 
 		const limitText = isOwner
 			? 'Unlimited [Owner]'
-			: `${user?.user_limit ?? setting.limit} / ${setting.limit}`;
+			: `${user?.user_limit ?? setting.limit}/${setting.limit}`;
 
 		const sections = [
 			header,

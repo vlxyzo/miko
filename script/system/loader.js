@@ -1,3 +1,10 @@
+/**
+ * @project   miko v0.0.1-alpha
+ * @author    Velix <https://github.com/vlxyzo>
+ * @license   GPL-3.0-or-later
+ * @source    https://github.com/vlxyzo/miko
+ */
+
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -7,15 +14,10 @@ const PLUGIN_DIR = path.resolve(import.meta.dirname, '../plugin');
 const VALID_EXTENSIONS = new Set(['.js', '.mjs']);
 
 class PluginStore {
-	/** @type {Map<string, object>} Map<commandOrAlias, plugin> (O(1) lookup) */
 	commands = new Map();
-	/** @type {Map<string, object>} Map<uniquePluginKey, plugin> */
 	plugins = new Map();
-	/** @type {Map<string, object[]>} Map<categoryName, plugin[]> */
 	categories = new Map();
-	/** @type {object[]} Plugin w command type RegExp */
 	regexPlugins = [];
-	/** @type {object[]} Plugin have hook before() / all() */
 	hookPlugins = [];
 }
 
@@ -134,7 +136,7 @@ export async function loadPlugins({ bustCache = false } = {}) {
 				if (nextStore.commands.has(trigger)) {
 					const conflict = nextStore.commands.get(trigger);
 					log.warning(
-						`Command collision "${trigger}" in ${relativePath} (already registered by ${conflict.id})`
+						`Command collision ${trigger} in ${relativePath} already registered by ${conflict.id}`
 					);
 					continue;
 				}
@@ -164,7 +166,7 @@ export async function loadPlugins({ bustCache = false } = {}) {
 	store.hookPlugins = nextStore.hookPlugins;
 
 	log.success(
-		`Loaded ${store.plugins.size} plugins (${store.commands.size} commands) across ${store.categories.size} categories`
+		`Loaded ${store.plugins.size} plugins. Total ${store.commands.size} commands across ${store.categories.size} categories`
 	);
 
 	return store;

@@ -1,3 +1,10 @@
+/**
+ * @project   miko v0.0.1-alpha
+ * @author    Velix <https://github.com/vlxyzo>
+ * @license   GPL-3.0-or-later
+ * @source    https://github.com/vlxyzo/miko
+ */
+
 import { randomBytes } from 'node:crypto';
 import { ffmpeg } from '#lib/ffmpeg.js';
 import { log } from '#lib/logger.js';
@@ -11,9 +18,9 @@ import {
 } from '#lib/message.js';
 import { TimeUtil } from '#lib/times.js';
 import { awayCooldown, cmdCooldown, createCooldown, findDidYouMean } from '#lib/utils.js';
-import { GlobCache } from '#sys/cache.js';
-import { getOwnerAway, isOwnerId, useUserLimit } from '#sys/database.js';
-import { store } from '#sys/loader.js';
+import { GlobCache } from './cache.js';
+import { getOwnerAway, isOwnerId, useUserLimit } from './database.js';
+import { store } from './loader.js';
 import { bot, message, owner, setting } from '../config.js';
 
 const processedUpdates = GlobCache.createCache('processed_updates', {
@@ -214,12 +221,7 @@ async function executePlugin(ctx, plugin, invocation) {
 		}
 
 		if (plugin.botAdmin && !adminSet.has(ctx.botInfo.id)) {
-			return sendThrottledNotice(
-				ctx,
-				`botadmin:${ctx.chat.id}`,
-				'5s',
-				'🤖 <b>Miko needs to be an admin</b> in this group to perform that action.'
-			);
+			return sendThrottledNotice(ctx, `botadmin:${ctx.chat.id}`, '5s', message.botAdmin);
 		}
 	}
 
@@ -371,7 +373,7 @@ export function registerHandler(telegrafBot) {
 
 		if (!entry) {
 			await ctx
-				.answerCbQuery('⌛ This suggestion has expired.', { show_alert: true })
+				.answerCbQuery('⏰ This suggestion has expired', { show_alert: true })
 				.catch(() => {});
 			await ctx.deleteMessage().catch(() => {});
 			return;
@@ -379,7 +381,7 @@ export function registerHandler(telegrafBot) {
 
 		if (ctx.from?.id !== entry.userId) {
 			await ctx
-				.answerCbQuery('⚠️ Only the sender can confirm this command.', {
+				.answerCbQuery('⚠️ Only the sender can confirm this command', {
 					show_alert: true,
 				})
 				.catch(() => {});

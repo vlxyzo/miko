@@ -9,7 +9,7 @@ export default {
 	cooldown: '5s',
 	async exec(ctx, { reply }) {
 		const start = performance.now();
-		const sent = await reply('🏓 <i>Pinging...</i>');
+		const sent = await reply(message.loading);
 		const latency = Math.round(performance.now() - start);
 		const uptime = TimeUtil.clockString(process.uptime() * 1000);
 

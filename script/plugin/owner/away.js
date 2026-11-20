@@ -3,7 +3,7 @@ import { TimeUtil } from '#lib/times.js';
 import { awayCooldown } from '#lib/utils.js';
 import { getOwnerAway, setOwnerAway } from '#sys/database.js';
 
-const OFF_KEYWORDS = new Set(['off', 'disable', 'false', '0', 'back', 'kembali']);
+const OFF_KEYWORDS = new Set(['off', 'disable', 'false', '0', 'back']);
 
 export default {
 	name: 'away',
@@ -20,7 +20,7 @@ export default {
 
 		if (wantsOff || (current.away && !text.trim())) {
 			if (!current.away) {
-				return reply(`ℹ️ ${Fmt.bold('Away mode')} is already inactive.`);
+				return reply(`ℹ️ ${Fmt.bold('Away mode')} is already inactive`);
 			}
 
 			const durationText = current.since
@@ -54,7 +54,7 @@ export default {
 
 		const updated = getOwnerAway();
 		const sinceFormatted = updated.since
-			? `${TimeUtil.formatDate(updated.since)} (${TimeUtil.formatTime('HH:mm', updated.since)} WIB)`
+			? `${TimeUtil.formatDate(updated.since)} (${TimeUtil.formatTime('HH:mm', updated.since)}`
 			: 'Just now';
 
 		const lines = [

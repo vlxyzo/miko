@@ -1,3 +1,10 @@
+/**
+ * @project   miko v0.0.1-alpha
+ * @author    Velix <https://github.com/vlxyzo>
+ * @license   GPL-3.0-or-later
+ * @source    https://github.com/vlxyzo/miko
+ */
+
 import pkg from '../package.json' with { type: 'json' };
 import { log } from '#lib/logger.js';
 
@@ -68,6 +75,7 @@ export const message = {
 	groupBanned: '🚫 This <b>group chat</b> is blacklisted and cannot use miko.',
 	groupMuted: '🔇 Bot responses are currently <b>muted</b> in this group by an admin.',
 	adminOnly: '🛡️ This command is restricted to <b>group admins</b>.',
+	botAdmin: '🤖 <b>Miko needs to be an admin</b> in this group to perform that action.',
 	owner: "💢 <b>You're not my owner</b>. Keep your hands off this command!",
 	banned: "🚫 You're <b>blacklisted</b> and can't use miko.\n\n📝 <b>Reason:</b> <code>{reason}</code>\n🗓️ <b>Since:</b> <code>{since}</code>",
 	limit: "📉 <b>You've reached your daily usage limit</b>. Wait for the daily reset to use this again!",
