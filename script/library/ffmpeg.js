@@ -17,6 +17,7 @@ const CRF_MAP = Object.freeze({
 	high: '23',
 	ultra: '18',
 });
+
 const AUDIO_CODECS = Object.freeze({
 	mp3: 'libmp3lame',
 	aac: 'aac',
@@ -73,6 +74,7 @@ export class FFmpegWrapper {
 				if (isSettled) return;
 				isSettled = true;
 				clearTimeout(timer);
+
 				if (child.pid) child.kill('SIGKILL');
 				reject(new Error(`Failed to start FFmpeg process: ${err.message}`));
 			});

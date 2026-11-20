@@ -117,10 +117,12 @@ function isOwnerMentionedOrReplied(msg) {
 		if (entity.type === 'text_mention' && entity.user?.id && isOwnerId(entity.user.id)) {
 			return true;
 		}
+
 		if (entity.type === 'mention' && ownerUsername) {
 			const mentioned = rawText
 				.slice(entity.offset, entity.offset + entity.length)
 				.toLowerCase();
+
 			if (mentioned === `@${ownerUsername}`) {
 				return true;
 			}
@@ -147,6 +149,7 @@ async function getAdminSet(ctx) {
 		const admins = await ctx.getChatAdministrators();
 		const adminIds = new Set(admins.map(member => member.user.id));
 		groupAdminCache.set(key, adminIds);
+
 		return adminIds;
 	} catch {
 		return new Set();
@@ -244,6 +247,7 @@ async function executePlugin(ctx, plugin, invocation) {
 	if (!isOwner && cooldownSpec) {
 		const cdKey = `${userId}:${plugin.id}`;
 		const cdStatus = cmdCooldown.consume(cdKey, cooldownSpec);
+
 		if (!cdStatus.ok) {
 			const cdText = formatTemplate(message.cooldown, { time: cdStatus.remainingText });
 			return sendThrottledNotice(ctx, `cd:${cdKey}`, '3s', cdText);
@@ -261,6 +265,7 @@ async function executePlugin(ctx, plugin, invocation) {
 		if (!user?.is_registered) {
 			return sendThrottledNotice(ctx, `reg:${userId}`, '5s', message.notRegistered);
 		}
+
 		if (!useUserLimit(userId, limitCost)) {
 			return sendThrottledNotice(ctx, `limit:${userId}`, '10s', message.limit);
 		}

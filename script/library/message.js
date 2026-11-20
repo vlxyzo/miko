@@ -10,28 +10,34 @@ const VALID_DICE_EMOJIS = new Set(['🎲', '🎯', '🏀', '⚽', '🎳', '🎰'
 function chunkArray(items, columns = 2) {
 	const cols = Math.max(1, Math.floor(Number(columns) || 1));
 	const rows = [];
+
 	for (let i = 0; i < items.length; i += cols) {
 		rows.push(items.slice(i, i + cols));
 	}
+
 	return rows;
 }
 
 function cleanObject(obj) {
 	const out = {};
+
 	for (const [key, value] of Object.entries(obj)) {
 		if (value !== undefined && value !== null) {
 			out[key] = value;
 		}
 	}
+
 	return out;
 }
 
 function assertCallbackBytes(data) {
 	const value = String(data ?? '');
 	const bytes = Buffer.byteLength(value, 'utf8');
+
 	if (bytes < 1 || bytes > 64) {
 		throw new RangeError(`Telegram callback_data must be 1-64 bytes (received ${bytes} bytes)`);
 	}
+
 	return value;
 }
 
@@ -66,6 +72,7 @@ export function stripHtml(html) {
 export function formatTemplate(template, vars = {}, shouldEscape = true) {
 	return String(template ?? '').replace(/\{(\w+)\}/g, (match, key) => {
 		if (!Object.hasOwn(vars, key)) return match;
+
 		const val = vars[key] ?? '';
 		return shouldEscape ? escapeHtml(val) : String(val);
 	});
@@ -159,6 +166,7 @@ export const InlineButton = Object.freeze({
 						bot_username: config.bot_username,
 						request_write_access: config.request_write_access,
 					});
+
 		return applyButtonStyle({ text: String(text), login_url: login }, opts);
 	},
 
@@ -240,7 +248,9 @@ export const InlineKeyboard = Object.freeze({
 			if (currentPage > 1) {
 				navRow.push(InlineButton.callback(prevLabel, `${prefix}:${currentPage - 1}`));
 			}
+
 			navRow.push(InlineButton.callback(`${currentPage} / ${totalPages}`, `${prefix}:noop`));
+
 			if (currentPage < totalPages) {
 				navRow.push(InlineButton.callback(nextLabel, `${prefix}:${currentPage + 1}`));
 			}
@@ -422,6 +432,7 @@ export const Media = Object.freeze({
 
 	carousel: (items = [], options = {}) => {
 		const list = items.filter(Boolean);
+
 		if (list.length < 2 || list.length > 10) {
 			throw new RangeError(
 				`Telegram media group (carousel) requires 2-10 items (received ${list.length})`
@@ -437,6 +448,7 @@ export const Media = Object.freeze({
 			if (index === 0 && options.caption) {
 				normalized.caption = options.caption;
 				normalized.parse_mode = options.parse_mode ?? 'HTML';
+
 				if (options.show_caption_above_media !== undefined) {
 					normalized.show_caption_above_media = options.show_caption_above_media;
 				}
@@ -562,6 +574,7 @@ export class MessageBuilder {
 		if (content !== undefined && content !== null) {
 			this.#lines.push(String(content));
 		}
+
 		return this;
 	}
 

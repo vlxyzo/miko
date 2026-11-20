@@ -17,6 +17,7 @@ function sysDeps() {
 		encoding: 'utf8',
 		shell: process.platform === 'win32',
 	});
+
 	const npmMajor = Number((npmCheck.stdout || '0').trim().split('.')[0]);
 	const ffmpegCheck = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
 
@@ -24,12 +25,14 @@ function sysDeps() {
 		log.error(`miko needs Node.js v24+ (yours v${process.versions.node}). Run: npm run setup`);
 		process.exit(1);
 	}
+
 	if (npmCheck.status !== 0 || npmMajor < 11) {
 		log.error(
 			`miko needs npm v11+ (yours v${(npmCheck.stdout || 'none').trim()}). Run: npm run setup`
 		);
 		process.exit(1);
 	}
+
 	if (ffmpegCheck.status !== 0) {
 		log.error('miko needs FFmpeg, but it is not installed globally. Run: npm run setup');
 		process.exit(1);
@@ -140,11 +143,13 @@ class ProcessManager {
 				);
 				this.exit(0);
 			}
+
 			if (this.isRestart) {
 				log.loading('Previous process stopped. Starting a fresh instance...');
 				this.start();
 				return;
 			}
+
 			if (code !== 0) {
 				this.handleCrash(code, signal);
 			} else {

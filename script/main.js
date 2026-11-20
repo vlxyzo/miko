@@ -7,7 +7,9 @@
 
 try {
 	process.loadEnvFile();
-} catch {}
+} catch {
+	/*ignore*/
+}
 
 import { Telegraf } from 'telegraf';
 import { log } from '#lib/logger.js';

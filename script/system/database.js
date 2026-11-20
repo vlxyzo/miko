@@ -18,41 +18,32 @@ export const supabase =
 				auth: { persistSession: false, autoRefreshToken: false },
 			})
 		: null;
-
 if (!supabase) {
 	log.warning('DB_URL or DB_KEY is not set. Running in local json mode only');
 }
-
 const DB_DIR = path.resolve(process.cwd(), 'database');
 const DB_FILE = path.join(DB_DIR, 'db.json');
 const DB_BAK_FILE = path.join(DB_DIR, 'db.json.bak');
 const CHUNK_SIZE = 200;
-
 let dbMeta = {
 	lastDefaultLimit: setting.limit,
 	lastLimitResetDate: TimeUtil.getDateKey(),
 	lastCloudSync: null,
 };
-
 let diskTimer = null;
 let syncTimer = null;
 let diskWriteLock = Promise.resolve();
 let isCloudSyncing = false;
 let isInitialized = false;
-
-// owner helper
 function getOwnerIds() {
 	if (!owner.id) return [];
 	const list = Array.isArray(owner.id) ? owner.id : String(owner.id).split(',');
 	return list.map(id => Number(String(id).trim())).filter(id => Number.isFinite(id) && id > 0);
 }
-
 export function isOwnerId(telegramId) {
 	const target = Number(telegramId);
 	return Number.isFinite(target) && target > 0 && getOwnerIds().includes(target);
 }
-
-// normalizers
 function normalizeUser(raw) {
 	if (!raw || raw.telegram_id == null) return null;
 	return {
@@ -70,7 +61,6 @@ function normalizeUser(raw) {
 		last_active: raw.last_active || new Date().toISOString(),
 	};
 }
-
 function normalizeBan(raw) {
 	if (!raw || raw.telegram_id == null) return null;
 	return {
@@ -81,7 +71,6 @@ function normalizeBan(raw) {
 		expires_at: raw.expires_at || null,
 	};
 }
-
 function normalizeGroup(raw) {
 	if (!raw || raw.chat_id == null) return null;
 	return {
@@ -94,7 +83,6 @@ function normalizeGroup(raw) {
 		last_active: raw.last_active || new Date().toISOString(),
 	};
 }
-
 function normalizeState(raw) {
 	if (!raw || !raw.key) return null;
 	return {
@@ -103,30 +91,24 @@ function normalizeState(raw) {
 		updated_at: raw.updated_at || new Date().toISOString(),
 	};
 }
-
-// table store
 function createTable(table, keyField, timeField, normalize) {
 	const map = new Map();
 	const upserts = new Set();
 	const deletes = new Set();
 	const gen = new Map();
-
 	return {
 		map,
 		hasPending: () => upserts.size > 0 || deletes.size > 0,
-
 		markUpsert(id) {
 			gen.set(id, (gen.get(id) ?? 0) + 1);
 			deletes.delete(id);
 			upserts.add(id);
 		},
-
 		markDelete(id) {
 			upserts.delete(id);
 			gen.delete(id);
 			deletes.add(id);
 		},
-
 		merge(cloudRows, localRows) {
 			const toMap = rows => {
 				const out = new Map();
@@ -136,10 +118,8 @@ function createTable(table, keyField, timeField, normalize) {
 				}
 				return out;
 			};
-
 			const cloudMap = toMap(cloudRows);
 			const localMap = toMap(localRows);
-
 			if (cloudRows === null) {
 				for (const [key, item] of localMap) {
 					map.set(key, item);
@@ -147,16 +127,13 @@ function createTable(table, keyField, timeField, normalize) {
 				}
 				return;
 			}
-
 			if (localRows === null) {
 				for (const [key, item] of cloudMap) map.set(key, item);
 				return;
 			}
-
 			for (const key of new Set([...cloudMap.keys(), ...localMap.keys()])) {
 				const cItem = cloudMap.get(key);
 				const lItem = localMap.get(key);
-
 				if (cItem && !lItem) {
 					map.set(key, cItem);
 				} else if (!cItem && lItem) {
@@ -174,7 +151,6 @@ function createTable(table, keyField, timeField, normalize) {
 				}
 			}
 		},
-
 		async sync() {
 			if (deletes.size > 0) {
 				const ids = Array.from(deletes);
@@ -182,25 +158,20 @@ function createTable(table, keyField, timeField, normalize) {
 				if (error) throw new Error(`Failed deleting ${table}: ${error.message}`);
 				for (const id of ids) deletes.delete(id);
 			}
-
 			if (upserts.size > 0) {
 				const pendingIds = Array.from(upserts);
 				const genSnapshot = new Map(pendingIds.map(id => [id, gen.get(id) ?? 0]));
 				const records = pendingIds.map(id => map.get(String(id))).filter(Boolean);
-
 				for (let i = 0; i < records.length; i += CHUNK_SIZE) {
 					const chunk = records.slice(i, i + CHUNK_SIZE);
 					const { data, error } = await supabase
 						.from(table)
 						.upsert(chunk, { onConflict: keyField })
 						.select();
-
 					if (error) throw new Error(`Upsert ${table} failed: ${error.message}`);
-
 					for (const row of data ?? []) {
 						const normalized = normalize(row);
 						if (!normalized) continue;
-
 						const id = normalized[keyField];
 						if (gen.get(id) === genSnapshot.get(id)) {
 							map.set(String(id), normalized);
@@ -209,7 +180,6 @@ function createTable(table, keyField, timeField, normalize) {
 						}
 					}
 				}
-
 				for (const id of pendingIds) {
 					if (!map.has(String(id))) {
 						upserts.delete(id);
@@ -220,14 +190,11 @@ function createTable(table, keyField, timeField, normalize) {
 		},
 	};
 }
-
 const users = createTable('users', 'telegram_id', 'last_active', normalizeUser);
 const bans = createTable('banned_users', 'telegram_id', 'banned_at', normalizeBan);
 const groups = createTable('groups', 'chat_id', 'last_active', normalizeGroup);
 const states = createTable('bot_state', 'key', 'updated_at', normalizeState);
 const allTables = [users, bans, groups, states];
-
-// disk & runtime helpers
 function getNextLocalId() {
 	let maxId = -1;
 	for (const user of users.map.values()) {
@@ -235,7 +202,6 @@ function getNextLocalId() {
 	}
 	return maxId + 1;
 }
-
 function scheduleDiskWrite() {
 	if (diskTimer) return;
 	diskTimer = setTimeout(() => {
@@ -243,7 +209,6 @@ function scheduleDiskWrite() {
 		void writeLocalAtomic();
 	}, interval.diskDebounceMs ?? 500).unref();
 }
-
 function writeLocalAtomic() {
 	diskWriteLock = diskWriteLock
 		.then(async () => {
@@ -259,7 +224,6 @@ function writeLocalAtomic() {
 				null,
 				2
 			);
-
 			const tmpFile = `${DB_FILE}.${process.pid}.${Date.now()}.tmp`;
 			try {
 				await fs.writeFile(tmpFile, payload, 'utf8');
@@ -275,10 +239,8 @@ function writeLocalAtomic() {
 			}
 		})
 		.catch(err => log.error(`Failed to perform atomic write to local json: ${err.message}`));
-
 	return diskWriteLock;
 }
-
 async function readLocalJson() {
 	for (const filePath of [DB_FILE, DB_BAK_FILE]) {
 		try {
@@ -296,26 +258,20 @@ async function readLocalJson() {
 	}
 	return null;
 }
-
 function applyRuntimeStates() {
 	const awayState = states.map.get('owner_away')?.value;
 	if (awayState && typeof awayState.away === 'boolean') owner.away = awayState.away;
-
 	const botConfig = states.map.get('bot_config')?.value;
 	if (botConfig) {
 		if (botConfig.mode === 'public' || botConfig.mode === 'self') bot.mode = botConfig.mode;
 		if (typeof botConfig.maintenance === 'boolean') bot.maintenance = botConfig.maintenance;
 	}
 }
-
-// daily reset & cloud sync
 export function checkDailyLimitReset() {
 	const todayKey = TimeUtil.getDateKey();
 	if (dbMeta.lastLimitResetDate === todayKey) return 0;
-
 	const defaultLimit = Number(setting.limit ?? 15);
 	let resetCount = 0;
-
 	for (const user of users.map.values()) {
 		if (!user.is_registered || user.is_banned) continue;
 		if (user.user_limit < defaultLimit) {
@@ -324,19 +280,15 @@ export function checkDailyLimitReset() {
 			resetCount++;
 		}
 	}
-
 	dbMeta.lastLimitResetDate = todayKey;
 	scheduleDiskWrite();
-
 	if (resetCount > 0) {
 		log.info(`Daily limit reset (${todayKey}): restored limit for ${resetCount} user(s)`);
 	}
 	return resetCount;
 }
-
 export async function syncToCloud() {
 	if (!supabase || isCloudSyncing || !allTables.some(t => t.hasPending())) return;
-
 	isCloudSyncing = true;
 	try {
 		for (const table of allTables) await table.sync();
@@ -348,15 +300,11 @@ export async function syncToCloud() {
 		isCloudSyncing = false;
 	}
 }
-
-// initialization
 export async function initDatabase() {
 	if (isInitialized) return;
-
 	await fs.mkdir(DB_DIR, { recursive: true });
 	const localData = await readLocalJson();
 	let cloudData = null;
-
 	if (supabase) {
 		try {
 			const [usersRes, bansRes, groupsRes, stateRes] = await Promise.all([
@@ -365,10 +313,8 @@ export async function initDatabase() {
 				supabase.from('groups').select('*'),
 				supabase.from('bot_state').select('*'),
 			]);
-
 			const firstError = usersRes.error || bansRes.error || groupsRes.error || stateRes.error;
 			if (firstError) throw firstError;
-
 			cloudData = {
 				users: usersRes.data ?? [],
 				banned: bansRes.data ?? [],
@@ -381,14 +327,11 @@ export async function initDatabase() {
 			);
 		}
 	}
-
 	if (localData?.meta) dbMeta = { ...dbMeta, ...localData.meta };
-
 	users.merge(cloudData?.users ?? null, localData?.users ?? null);
 	bans.merge(cloudData?.banned ?? null, localData ? (localData.banned ?? []) : null);
 	groups.merge(cloudData?.groups ?? null, localData ? (localData.groups ?? []) : null);
 	states.merge(cloudData?.state ?? null, localData ? (localData.state ?? []) : null);
-
 	if (!localData && cloudData) {
 		log.success(
 			`Database restored from Supabase (${users.map.size} users, ${bans.map.size} banned, ${groups.map.size} groups)`
@@ -404,7 +347,6 @@ export async function initDatabase() {
 	} else {
 		log.info('Initialized fresh empty database');
 	}
-
 	applyRuntimeStates();
 	await syncLimitWithConfig();
 	checkDailyLimitReset();
@@ -412,60 +354,47 @@ export async function initDatabase() {
 	await purgeOwnerUsers();
 	await writeLocalAtomic();
 	await syncToCloud();
-
 	if (supabase) {
 		syncTimer = setInterval(() => {
 			checkDailyLimitReset();
 			void syncToCloud();
 		}, interval.cloudSyncIntervalMs ?? 10_000).unref();
 	}
-
 	isInitialized = true;
 }
-
-// user operations
 export async function syncLimitWithConfig() {
 	const currentConfigLimit = Number(setting.limit ?? 15);
 	const previousConfigLimit = Number(dbMeta.lastDefaultLimit ?? currentConfigLimit);
 	const diff = currentConfigLimit - previousConfigLimit;
 	if (diff === 0) return;
-
 	for (const user of users.map.values()) {
 		user.user_limit = Math.max(0, user.user_limit + diff);
 		users.markUpsert(user.telegram_id);
 	}
-
 	dbMeta.lastDefaultLimit = currentConfigLimit;
 	scheduleDiskWrite();
 	log.info(
 		`setting.limit changed (${previousConfigLimit} -> ${currentConfigLimit}). Adjusted all user limits (${diff > 0 ? `+${diff}` : diff})`
 	);
 }
-
 export async function getUser(telegramId) {
 	checkDailyLimitReset();
-
 	const user = users.map.get(String(telegramId));
 	if (!user) return null;
-
 	const maxInactiveMs = (setting.inactiveDays ?? 30) * 24 * 60 * 60 * 1000;
 	const lastActiveMs = new Date(user.last_active).getTime();
 	const now = Date.now();
-
 	if (now - lastActiveMs > maxInactiveMs) {
 		await deleteUserByTelegramId(telegramId);
 		return null;
 	}
-
 	if (now - lastActiveMs > (interval.activeUpdateThresholdMs ?? 300_000)) {
 		user.last_active = new Date(now).toISOString();
 		users.markUpsert(user.telegram_id);
 		scheduleDiskWrite();
 	}
-
 	return user;
 }
-
 export async function purgeOwnerUsers() {
 	let purgedCount = 0;
 	for (const ownerId of getOwnerIds()) {
@@ -477,22 +406,18 @@ export async function purgeOwnerUsers() {
 			purgedCount++;
 		}
 	}
-
 	if (purgedCount > 0) {
 		scheduleDiskWrite();
 		log.info(`Removed ${purgedCount} owner account(s) from user database`);
 	}
 	return purgedCount;
 }
-
 export async function registerUser(tgUser) {
 	if (isOwnerId(tgUser.id)) return null;
-
 	const key = String(tgUser.id);
 	const now = new Date().toISOString();
 	const existing = users.map.get(key);
 	const banRecord = getBanInfo(tgUser.id);
-
 	const userObj = normalizeUser({
 		id: existing ? existing.id : getNextLocalId(),
 		telegram_id: tgUser.id,
@@ -505,38 +430,31 @@ export async function registerUser(tgUser) {
 		date_registered: existing?.date_registered || now,
 		last_active: now,
 	});
-
 	users.map.set(key, userObj);
 	users.markUpsert(userObj.telegram_id);
 	scheduleDiskWrite();
 	void syncToCloud();
 	return userObj;
 }
-
 export function useUserLimit(telegramId, amount = 1) {
 	checkDailyLimitReset();
 	if (isOwnerId(telegramId)) return true;
-
 	const user = users.map.get(String(telegramId));
 	if (!user || user.user_limit < amount) return false;
-
 	user.user_limit -= amount;
 	user.last_active = new Date().toISOString();
 	users.markUpsert(user.telegram_id);
 	scheduleDiskWrite();
 	return true;
 }
-
 export function setUserLimit(telegramId, newLimit) {
 	const user = users.map.get(String(telegramId));
 	if (!user) return null;
-
 	user.user_limit = Math.max(0, Number(newLimit));
 	users.markUpsert(user.telegram_id);
 	scheduleDiskWrite();
 	return user;
 }
-
 export async function deleteUserByIndex(indexId) {
 	const targetId = Number(indexId);
 	for (const [key, user] of users.map) {
@@ -550,24 +468,20 @@ export async function deleteUserByIndex(indexId) {
 	}
 	return null;
 }
-
 export async function deleteUserByTelegramId(telegramId) {
 	const key = String(telegramId);
 	const user = users.map.get(key);
 	if (!user) return false;
-
 	users.map.delete(key);
 	users.markDelete(user.telegram_id);
 	scheduleDiskWrite();
 	void syncToCloud();
 	return true;
 }
-
 export async function purgeInactiveUsers() {
 	const maxInactiveMs = (setting.inactiveDays ?? 30) * 24 * 60 * 60 * 1000;
 	const now = Date.now();
 	let purgedCount = 0;
-
 	for (const [key, user] of users.map) {
 		if (now - new Date(user.last_active).getTime() > maxInactiveMs) {
 			users.map.delete(key);
@@ -575,7 +489,6 @@ export async function purgeInactiveUsers() {
 			purgedCount++;
 		}
 	}
-
 	if (purgedCount > 0) {
 		scheduleDiskWrite();
 		log.info(
@@ -584,30 +497,23 @@ export async function purgeInactiveUsers() {
 	}
 	return purgedCount;
 }
-
 export function getAllUsers() {
 	return Array.from(users.map.values()).sort((a, b) => a.id - b.id);
 }
-
-// ban operations
 export function getBanInfo(telegramId) {
 	const ban = bans.map.get(String(telegramId));
 	if (!ban) return null;
-
 	if (ban.expires_at && Date.now() >= new Date(ban.expires_at).getTime()) {
 		unbanUser(telegramId);
 		return null;
 	}
 	return ban;
 }
-
 export function banUser(telegramId, options = {}) {
 	const id = Number(telegramId);
 	if (!Number.isFinite(id) || isOwnerId(id)) return null;
-
 	const { reason = 'No reason provided', bannedBy = null, duration = null } = options;
 	const durationMs = duration ? TimeUtil.parseDuration(duration, 0) : 0;
-
 	const record = normalizeBan({
 		telegram_id: id,
 		reason,
@@ -615,64 +521,51 @@ export function banUser(telegramId, options = {}) {
 		banned_at: new Date().toISOString(),
 		expires_at: durationMs > 0 ? new Date(Date.now() + durationMs).toISOString() : null,
 	});
-
 	bans.map.set(String(id), record);
 	bans.markUpsert(id);
-
 	const user = users.map.get(String(id));
 	if (user && !user.is_banned) {
 		user.is_banned = true;
 		users.markUpsert(id);
 	}
-
 	scheduleDiskWrite();
 	void syncToCloud();
 	return record;
 }
-
 export function unbanUser(telegramId) {
 	const id = Number(telegramId);
 	const key = String(id);
 	const hadBan = bans.map.delete(key);
 	if (hadBan) bans.markDelete(id);
-
 	const user = users.map.get(key);
 	if (user?.is_banned) {
 		user.is_banned = false;
 		users.markUpsert(id);
 	}
-
 	if (hadBan || user) {
 		scheduleDiskWrite();
 		void syncToCloud();
 	}
 	return hadBan || Boolean(user);
 }
-
 export function setBanStatus(telegramId, status = true, options = {}) {
 	if (status) banUser(telegramId, options);
 	else unbanUser(telegramId);
 	return users.map.get(String(telegramId)) ?? null;
 }
-
 export function getAllBannedUsers() {
 	return Array.from(bans.map.values()).sort(
 		(a, b) => new Date(b.banned_at).getTime() - new Date(a.banned_at).getTime()
 	);
 }
-
-// group operations
 export function getGroup(chatId) {
 	return groups.map.get(String(chatId)) ?? null;
 }
-
 export function ensureGroup(chat) {
 	if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) return null;
-
 	const key = String(chat.id);
 	const now = Date.now();
 	const existing = groups.map.get(key);
-
 	if (!existing) {
 		const created = normalizeGroup({
 			chat_id: chat.id,
@@ -684,7 +577,6 @@ export function ensureGroup(chat) {
 		scheduleDiskWrite();
 		return created;
 	}
-
 	const titleChanged = chat.title && existing.title !== chat.title;
 	if (
 		titleChanged ||
@@ -698,39 +590,31 @@ export function ensureGroup(chat) {
 	}
 	return existing;
 }
-
 export function updateGroup(chatId, patch = {}) {
 	const existing = groups.map.get(String(chatId));
 	if (!existing) return null;
-
 	const updated = normalizeGroup({ ...existing, ...patch, chat_id: existing.chat_id });
 	groups.map.set(String(chatId), updated);
 	groups.markUpsert(updated.chat_id);
 	scheduleDiskWrite();
 	return updated;
 }
-
 export async function deleteGroup(chatId) {
 	const key = String(chatId);
 	const existing = groups.map.get(key);
 	if (!existing) return false;
-
 	groups.map.delete(key);
 	groups.markDelete(existing.chat_id);
 	scheduleDiskWrite();
 	void syncToCloud();
 	return true;
 }
-
 export function getAllGroups() {
 	return Array.from(groups.map.values());
 }
-
-// bot state operations
 export function getState(key, fallback = null) {
 	return states.map.get(String(key))?.value ?? fallback;
 }
-
 export function setState(key, value) {
 	const normalized = normalizeState({ key, value, updated_at: new Date().toISOString() });
 	states.map.set(normalized.key, normalized);
@@ -739,7 +623,6 @@ export function setState(key, value) {
 	void syncToCloud();
 	return normalized.value;
 }
-
 export function setOwnerAway(away, reason = null) {
 	const isAway = Boolean(away);
 	owner.away = isAway;
@@ -749,7 +632,6 @@ export function setOwnerAway(away, reason = null) {
 		since: isAway ? new Date().toISOString() : null,
 	});
 }
-
 export function getOwnerAway() {
 	const saved = getState('owner_away', null);
 	return {
@@ -758,49 +640,38 @@ export function getOwnerAway() {
 		since: saved?.since ?? null,
 	};
 }
-
 export function setBotRuntime({ mode, maintenance } = {}) {
 	if (mode === 'public' || mode === 'self') bot.mode = mode;
 	if (typeof maintenance === 'boolean') bot.maintenance = maintenance;
 	return setState('bot_config', { mode: bot.mode, maintenance: bot.maintenance });
 }
-
-// flush & middleware
 export async function flushDatabase() {
 	if (diskTimer) {
 		clearTimeout(diskTimer);
 		diskTimer = null;
 	}
-
 	if (syncTimer) {
 		clearInterval(syncTimer);
 		syncTimer = null;
 	}
-
 	await writeLocalAtomic();
 	await syncToCloud();
 }
-
 export function authMiddleware(options = {}) {
 	const { blockBanned = false } = options;
-
 	return async (ctx, next) => {
 		if (!ctx.from || ctx.from.is_bot) return;
-
 		const isOwner = isOwnerId(ctx.from.id);
 		const banInfo = isOwner ? null : getBanInfo(ctx.from.id);
 		const user = await getUser(ctx.from.id);
-
 		if (blockBanned && !isOwner && (banInfo || user?.is_banned)) {
 			log.warning(`Access denied from banned user: ${ctx.from.id}`);
 			return;
 		}
-
 		ctx.state.user = user;
 		ctx.state.group = ensureGroup(ctx.chat);
 		ctx.state.isOwner = isOwner;
 		ctx.state.banInfo = banInfo;
-
 		return next();
 	};
 }
