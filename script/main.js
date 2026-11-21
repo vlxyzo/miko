@@ -59,7 +59,7 @@ async function syncTelegramCommands() {
 	}
 }
 
-async function bootstrap() {
+async function wakemiko() {
 	log.loading(`Starting ${bot.name} version ${bot.version}...`);
 
 	await initDatabase();
@@ -134,7 +134,7 @@ async function shutdown(signal) {
 process.once('SIGINT', () => void shutdown('SIGINT'));
 process.once('SIGTERM', () => void shutdown('SIGTERM'));
 
-bootstrap().catch(err => {
+wakemiko().catch(err => {
 	log.error('Fatal bootstrap error:', err);
 	process.exit(1);
 });

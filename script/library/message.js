@@ -1,7 +1,7 @@
 /**
  * @project   miko v0.0.1-alpha
  * @author    Velix <https://github.com/vlxyzo>
- * @license   GPL-3.0-or-later
+ * @license   gpl-3.0-or-later
  * @source    https://github.com/vlxyzo/miko
  */
 
@@ -47,7 +47,6 @@ function applyButtonStyle(base, opts = {}) {
 	return base;
 }
 
-// html & markdown v2 formatters
 export function escapeHtml(value) {
 	return String(value ?? '')
 		.replace(/&/g, '&amp;')
@@ -100,7 +99,6 @@ export const Fmt = Object.freeze({
 		`<tg-emoji emoji-id="${escapeHtml(emojiId)}">${escapeHtml(fallbackEmoji)}</tg-emoji>`,
 });
 
-// link preview options (LinkPreviewOptions)
 export const LinkPreview = Object.freeze({
 	disable: () => ({ is_disabled: true }),
 
@@ -146,7 +144,6 @@ export const LinkPreview = Object.freeze({
 		}),
 });
 
-// inline keyboard & buttons (InlineKeyboardMarkup)
 export const InlineButton = Object.freeze({
 	callback: (text, data, opts = {}) =>
 		applyButtonStyle({ text: String(text), callback_data: assertCallbackBytes(data) }, opts),
@@ -265,7 +262,6 @@ export const InlineKeyboard = Object.freeze({
 	},
 });
 
-// reply keyboard & input controls (ReplyKeyboardMarkup)
 export const ReplyButton = Object.freeze({
 	text: (text, opts = {}) => applyButtonStyle({ text: String(text) }, opts),
 
@@ -360,7 +356,6 @@ export const ReplyKeyboard = Object.freeze({
 		}),
 });
 
-// media carousel / album & paid media (InputMedia)
 export const Media = Object.freeze({
 	photo: (media, options = {}) =>
 		cleanObject({
@@ -474,7 +469,6 @@ export const Media = Object.freeze({
 		}),
 });
 
-// interactive polls, quotes, dice, geo & contact
 export const Poll = Object.freeze({
 	regular: (question, options = [], config = {}) =>
 		cleanObject({
@@ -562,7 +556,6 @@ export const Contact = Object.freeze({
 		}),
 });
 
-// fluent message composer
 export class MessageBuilder {
 	#lines = [];
 	#extra = {

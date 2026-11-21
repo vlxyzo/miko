@@ -1,7 +1,7 @@
 /**
  * @project   miko v0.0.1-alpha
  * @author    Velix <https://github.com/vlxyzo>
- * @license   GPL-3.0-or-later
+ * @license   gpl-3.0-or-later
  * @source    https://github.com/vlxyzo/miko
  */
 
@@ -65,26 +65,26 @@ export const api = {
 
 // --------- DEFAULT MESSAGE ---------
 export const message = {
-	loading: '⏳ <i>Hang tight, magic in progress...</i>',
-	done: '✅ <b>Done and dusted!</b>',
-	error: "❌ <b>Oops! Something broke. Please try again later.</b>",
-	maintenance: "🛠️ <b>I'm down for scheduled maintenance at the moment. I'll be back online shortly, please try again later.</b>",
-	selfMode: "🔒 <b>Self Mode Active. I'm currently operating exclusively for my owner.</b>",
-	private: "💌 <b>Let's move into DMs, I can't do this in public.</b>",
-	group: '👥 <b>This one only works inside a group chat.</b>',
-	groupBanned: '🚫 <b>This group chat is blacklisted and cannot use miko.</b>',
-	groupMuted: '🔇 <b>Bot responses are currently muted in this group by an admin.</b>',
-	adminOnly: '🛡️ <b>This command is restricted to group admins.</b>',
-	botAdmin: '🤖 Miko needs to be an admin in this group to perform that action.',
-	owner: "💢 You're not my owner. Keep your hands off this command!",
-	banned: "🚫 You're blacklisted and can't use miko.\n\n📝 <b>Reason:</b> <code>{reason}</code>\n🗓️ <b>Since:</b> <code>{since}</code>",
-	limit: "📉 You've reached your daily usage limit. Wait for the daily reset to use this again.",
-	notRegistered: '🔑 Hmm, who are you? You need to register first. Type <code>/register</code> to get started.',
-	ownerAway: "🌙 My owner is away right now. Leave a message and he'll reply when he's back.\n\n📝 <b>Reason:</b> <code>{reason}</code>\n🗓️ <b>Since:</b> <code>{since}</code>",
-	didyoumean: "❓ Didn't quite catch that. Did you mean this?\n\n💬 <b>Command:</b> <code>{command}</code>\n📊 <b>Similarity:</b> <b>{similarity}</b>",
-	missingArgs: "⚠️ Missing arguments! Here's how to use it:\n📝 <b>Example:</b> <code>{format}</code>",
-	cooldown: "⏱️ Woah, slow down! You're going too fast. Wait <code>{time}</code> before we do this again.",
-	start: "👋 Hello {user}! {greetings}.\n\nIt's me, {bot}! I'm here to be your partner, your helper, and your favorite companion. Whatever you need, I'll handle it for you.",
+	loading: '⏳ <i>Hold up, cooking something up for ya...</i>',
+	done: '✅ <b>All set, we good!</b>',
+	error: '❌ <b>Something glitched out. Try again in a bit, okay?</b>',
+	maintenance: "️ <b>Be right back, i'm getting a quick tune up. Hit me up again in a bit!</b>",
+	selfMode: '🔒 <b>Private mode is on. Only vibing with my owner right now.</b>',
+	private: "💌 <b>Slide into my DMs for this one, can't do it out here in public.</b>",
+	group: '👥 <b>Group only. Drop this command inside a group chat!</b>',
+	groupBanned: '🚫 <b>This group is blacklisted. No miko privileges here.</b>',
+	groupMuted: '🔇 <b>Admins put me on mute in this group right now.</b>',
+	adminOnly: "🛡️ <b>Admins only broskie. You don't have the perms for this.</b>",
+	botAdmin: '🤖 <b>Make me an admin first in this group so I can pull this off.</b>',
+	owner: "💢 <b>Nice try, but you're not my owner. Hands off!</b>",
+	banned: "🚫 <b>Oof, you're blacklisted from using miko.</b>\n\n📝 <b>Reason:</b> <code>{reason}</code>\n🗓️ <b>Since:</b> <code>{since}</code>",
+	limit: "📉 <b>You're out of daily limit, fam. Wait for the reset tomorrow!</b>",
+	notRegistered: '🔑 Hold on, who dis? Register first by typing <code>/register</code>.',
+	ownerAway: "🌙 <b>My owner is AFK right now. Drop a message and he'll hit you back later.</b>\n\n📝 <b>Reason:</b> <code>{reason}</code>\n🗓️ <b>Since:</b> <code>{since}</code>",
+	didyoumean: '❓ <b>Huh? Typo alert. Did you mean this one?</b>\n\n💬 <b>Command:</b> <code>{command}</code>\n📊 <b>Similarity:</b> <b>{similarity}</b>',
+	missingArgs: '⚠️ <b>You forgot the args! Do it like this:</b>\n📝 <b>Example:</b> <code>{format}</code>',
+	cooldown: "⏱️ Chill, you're moving too fast! Wait <code>{time}</code> before running that again.",
+	start: "👋 Yo {user}! <b>{greetings}</b>.\n\nIt's <b>{bot}</b> in the house! Down to help you out with whatever you need.\n\n<blockquote>💡 Type <code>/menu</code> whenever you're ready to roll!</blockquote>",
 };
 
 // --------- SYSTEM INTERVAL ---------
